@@ -1,0 +1,141 @@
+---
+title: "mTaxSi 101"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{mTaxSi 101}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+# 1.0 What is mTaxSi?
+
+Large-scale cohort studies have identified lists of microbes implicated in disease, 
+but why they are associated with disease remains unclear. Metabolism, including microbial-derived metabolites, 
+is believed to underlie taxonomic variations in the microbiome. Metabolomic applications in microbiome studies 
+is still in its infancy and obtaining metabolomic and taxonomic profiles from the same samples is rare. An idea 
+of how to gain metabolic insights without performing additional metabolomic experiments is to leverage genome-scale 
+metabolic models (GEMs). GEMs are comprehensive metabolic reconstructions of an organism, and several thousand 
+high-quality models exist for gut bacteria. Intuitively, GEMs can be used directly to infer predicted metabolomic 
+profiles from a user’s list of microbes. We introduce mTaxSi, which empowers users to explore 
+predicted metabolic functions derived from taxonomic microbial signatures. 
+
+# 1.1 How should I format my data for mTaxSi?
+
+The mTaxSi workflow requires a simple two column comma-separated (.csv) file and the user’s phenotype of interest 
+(two words separated by a backslash, maximum of 20 characters, e.g. healthy/disease). 
+The first column of the .csv file must be <b>#NAME</b> and consists of
+a list of taxonomic signatures obtained from gene amplicon/marker genes sequencing (e.g. 16S rRNA) or shotgun sequencing. 
+Accepted microbial identifiers include operational taxonomic units (OTUs) using Greengenes OTU IDs, 
+OTUs/ASVs using either Greengenes or SILVA taxonomy, amplicon sequence variants 
+(ASVs), NCBI Taxonomy IDs or species/strain names. The second column of the .csv must be <b>#REGULATED</b> and 
+consists of whether the microbial features were up or downregulated in the user’s phenotype of interest. Example datasets can be found here:
+
+# 1.2 Which GEM database should I use?
+
+mTaxSi has two libraries of Genome-Scale Metabolic Models (GEMs) to which users can map their taxonomic
+signatures to, <b>(i) AGORA</b> and <b>(ii) CarveMe</b>. The libraries differ in the way the GEMs are created. 
+<b>AGORA</b> models are created using a bottom-up approach, where each GEM is assembled using genome 
+annotations from the organism of interest and then further refined using experimental data, gap-filling 
+algorithms and manual curation (Magnusdottir et al. 2017, Nat Biotech). In contrast, <b>CarveMe</b> models 
+are created using a top-down approach, where a universal metabolic model is first constructed and then "carved" out to create
+organism-specific models (Machado et al. 2018, NAR).
+
+# 1.3 How does functional enrichment work in mTaxSi?
+
+Obtaining a list of metabolites that are different between two groups is not informative, therefore enrichment 
+analysis will be applied to gain more meaningful functional insights. Particularly, pathway enrichment analysis 
+is supported, which summarizes the list of metabolites into interpretable biological pathways. 
+Uses over-representation analysis, use a robust background method to handle random chance. Using the user’s list of significant microbes, perform enrichment analysis.
+Then perform rounds 100 times using a random permuted list of microbes the same length of the total matched models 
+and perform enrichment on that.
+
+# 2.0 Case Study Walk Through
+
+Three example datasets of Crohn's Disease, Colorectal Cancer and Schizophrenia can be downloaded here: https://drive.google.com/drive/folders/1cBVyxFUqSMFdHEDDXO5Dox0ROzvlJZvt?usp=sharing
+
+The underlying databases to run mTaxSi can be downloaded here: https://drive.google.com/file/d/1xt4O6Bp05DMzgcgxHBUVJz3l8JG_cQkn/view?usp=sharing
+
+The first step is to set up the mbSet object. The mbSet object, which is also the base data-containing object as in MicrobiomeAnalystR, will contain all important outputs from the workflow. 
+
+```{r, include = FALSE}
+mbSet <- Init.mbSetObj()
+mbSet <- SetModuleType(mbSet, "mnet")
+
+```
+
+Next, we read in the dataset containing the list of differentially abundant microbes. In this case, it is a list of 44 microbes from an investigation of Stage 0 Colorectal Cancer. 
+
+```{r, include = FALSE}
+mbSet <- readMNetTable(mbSet, "s0_crc_example.csv", "species")
+mbSet <- PerformMicrobiomeNetSanity(mbSet, "CRC vs. Healthy")
+
+```
+
+In this step, we set the library to "both", meaning we want to match to both AGORA and CarveMe GEM models. The 'match2gems' function then performs the matching of the user-input signature to the internal GEM database.
+
+```{r, include = FALSE}
+lib.vec <- c("both")
+mbSet <- setGemLibrary(mbSet, lib.vec);
+mbSet <- match2gems(mbSet)
+
+```
+
+Below is a code snippet to investigate the GEM matching.
+
+```{r, include = FALSE}
+
+###### OPTIONAL CODE! ###########
+
+m <- qs::qread("gem_matches.qs")
+
+# name of microbes without matches
+mbSet$mNet$feat.tbl$Microbe[!mbSet$mNet$feat.tbl$Microbe %in% m$query]
+
+# number of microbes with agora matches
+nrow(m[m$db == "agora", ])
+
+# number of microbes with carveme matches
+nrow(m[m$db == "carveme", ])
+
+```
+
+After the matching, the next step is to get the metabolites from all matched GEMs. We then apply binomial tests to find metabolites that are different between microbes enriched in CRC and microbes enriched in healthy controls. The other option is to use 'proportions' to apply a test of proportions. The 'GetPermDEMetabolites' also performs permutations of randomly selected GEMs the same length as the input taxonomic signature and obtaining the differentially abundant metabolites.
+
+```{r, include = FALSE}
+mbSet <- GetMetabolitesFromGems(mbSet)
+mbSet <- GetDEMetabolites(mbSet, "binomial")
+mbSet <- GetPermDEMetabolites(mbSet)
+
+```
+
+The next step is to perform the enrichment analysis of the differentially abundant metabolites. Here we use the KEGG pathways.
+
+```{r, include = FALSE}
+mbSet <- PerformPermEnrichment(mbSet, library.name = "kegg_pathways_generic")
+mbSet <- PerformTrueEnrichment(mbSet, library.name = "kegg_pathways_generic")
+
+```
+
+The following are the functions to obtain various plots from the enrichment analysis or to obtain a general metabolic overview of the matched GEMs.
+
+```{r, include = FALSE}
+
+# Creates PCA (score + loadings) or t-SNE plots of the metabolomics data per matched microbe
+mbSet <- global_visualization(mbSet, "pca", "crc_")
+
+# Creates a heatmap summarizing the predicted counts of 'bioactive' or 'amino' acids.
+mbSet <- heatmap_bioactive_metabolites(mbSet, metType = "bioactive", order.by = "group")
+
+# Creates a bubble chart showing the individual microbial contributions to 'bioactive', 'amino' or enter the
+# pathway name of interest from the Pathway Enrichment results
+mbSet <- microbe_metabolite_bubble_chart(mbSet, metType = "bioactive")
+
+# Lollipop plot comparing enrichment analysis results using AGORA and CarveMe models
+mbSet <- lollipop_plot_comp(mbSet, "KEGG", "kegg")
+
+# Creates either a dot or bar plot summarizing the enrichment analysis results
+mbSet <- PlotEnrichDotPlot(mbSet, "dot_plot")
+mbSet <- PlotORA(mbSet, "bar_plot")
+
+```
+

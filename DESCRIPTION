@@ -1,0 +1,21 @@
+Package: mTaxSi
+Title: Metabolic exploration of microbial taxonomic signatures.
+Version: 0.0.0.9000
+Authors@R: 
+    person(given = "Jasmine",
+           family = "Chong",
+           role = c("aut", "cre"),
+           email = "jasmine.chong@mail.mcgill.ca")
+Description: mTaxSi is an R package for exploratory metabolic analysis of   
+            taxonomic microbial signatures. It leverages genome-scale metabolic models 
+            to empower researchers to predict metabolic differences between disease phenotypes based 
+            on their taxonomic composition and prioritize these for future metabolomics experiments. 
+License: GPL (>= 3)
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.1
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
