@@ -16,8 +16,8 @@ is still in its infancy and obtaining metabolomic and taxonomic profiles from th
 of how to gain metabolic insights without performing additional metabolomic experiments is to leverage genome-scale 
 metabolic models (GEMs). GEMs are comprehensive metabolic reconstructions of an organism, and several thousand 
 high-quality models exist for gut bacteria. Intuitively, GEMs can be used directly to infer predicted metabolomic 
-profiles from a user’s list of microbes. We introduce mTaxSi, which empowers users to explore 
-predicted metabolic functions derived from taxonomic microbial signatures. 
+profiles from a user’s list of microbes. We introduce mTaxSi, which empowers users to explore alterations in
+predicted metabolic pathways derived from taxonomic microbial signatures. 
 
 # 1.1 How should I format my data for mTaxSi?
 
